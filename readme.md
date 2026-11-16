@@ -1,78 +1,122 @@
-# @tosolve/node-red-datacodec
+# 2Solve Decoder for Node-RED
 
 [![npm version](https://img.shields.io/npm/v/@tosolve/node-red-datacodec)](https://www.npmjs.com/package/@tosolve/node-red-datacodec)
-[![license](https://img.shields.io/npm/l/@tosolve/node-red-datacodec)](LICENSE)
 [![Node-RED](https://img.shields.io/badge/Node--RED-compatible-red)](https://nodered.org)
 
-A Node-RED node that decodes hexadecimal IoT sensor packets into structured JSON, powered by [@tosolve/datacodec](https://github.com/2solve/2solve-datacodec).
+A Node-RED node that decodes the uplink payloads of 2Solve devices (NanoDAq, FlexDAQ, Smart Water and other 2Sense
+devices) into named values. It is a thin wrapper: all the decoding, and the tag table, live in the
+[2Solve Decoder Library](https://github.com/2solve/software_2solve_decoder_lib). This node only passes the message to
+it and puts the result back on `msg.payload`. It only decodes; there is no encoder.
+
+| | |
+|---|---|
+| Repository | [`2solve/software_node-red_decoder_lib`](https://github.com/2solve/software_node-red_decoder_lib) (renamed from `2solve-node-red-datacodec` on 2026-11-16; the old URL redirects) |
+| npm package | **`@tosolve/node-red-datacodec`**: the package name did not change yet |
+| Node type | **`2stools-datacodec`**, kept on purpose: it is saved in every `flows.json`, and renaming it breaks the flows already installed |
+| Library | [`2solve/software_2solve_decoder_lib`](https://github.com/2solve/software_2solve_decoder_lib), npm `@tosolve/datacodec` |
 
 ---
 
 ## Installation
 
-Via the Node-RED palette manager, or from the command line:
+From the Node-RED palette manager, or:
 
 ```bash
 cd ~/.node-red
 npm install @tosolve/node-red-datacodec
 ```
 
-Restart Node-RED after installation.
+Restart Node-RED after installing.
+
+**Which library version runs.** The node uses the `@tosolve/datacodec` found from `~/.node-red/node_modules`. The npm
+registry has up to 0.20.0. To use a newer library (new tags, unknown-ID handling), update that copy and restart
+Node-RED; the node itself does not need to change. To check:
+
+```bash
+node -p "require('/root/.node-red/node_modules/@tosolve/datacodec/package.json').version"
+```
 
 ---
 
 ## Node: `2stools-datacodec`
 
-**Category:** Function  
-**Inputs:** 1 &nbsp;|&nbsp; **Outputs:** 1
-
-### How it works
-
-The node reads the incoming payload, decodes the hex-encoded sensor packet using the `@tosolve/datacodec` library, and outputs the decoded sensor data as a JSON object on `msg.payload`.
+**Category:** function · **Inputs:** 1 · **Outputs:** 1
 
 ### Input
 
-| Property | Type | Description |
-|---|---|---|
-| `msg.payload` | `string` \| `object` | Raw hex string, or an object containing a `payload_raw` field |
-| `msg.offset` | `number` | _(optional)_ Byte offset to apply when decoding. Overrides the node's configured offset |
+`msg.payload` can be:
 
-If `msg.payload` is an object with a `payload_raw` field (e.g. a LoRaWAN uplink envelope), that field is used as the raw payload automatically.
+| Input | Example | Works |
+|---|---|---|
+| Hex string | `"000441da6666"` | yes |
+| JSON message from the network server, as a **string or Buffer** (what an `mqtt in` node gives by default) | ChirpStack v4: `{"fPort":2,"data":"AARB2mZm",…}` | yes; the payload is Base64 in `data`, `payload`, `uplink_message.frm_payload` or `params.payload` |
+| An object with `payload_raw` | `{ payload_raw: "000441da6666" }` | only if `payload_raw` is **hex**; Base64 (The Things Network v2) throws |
+| An already parsed JS **object** (an `mqtt in` set to "parsed JSON", or after a `json` node) | `{ fPort: 2, data: "…" }` | **no**: throws. Send the string or Buffer instead |
+
+`msg.offset` (optional): where to start reading, in **hex characters** (2 per byte). Only for plain hex frames.
 
 ### Output
 
-| Property | Type | Description |
+`msg.payload` is replaced by the library result:
+
+| Field | When | Content |
 |---|---|---|
-| `msg.payload` | `object` | Decoded sensor data as a key-value JSON object |
+| `json2sense` | always | `{ tagName: value }`, values as strings (`'27.3000'`, `'75'`) |
+| input fields (`fPort`, `deviceInfo`, `time`…) | JSON input | copied unchanged next to `json2sense` |
+| `errors2sense` | library 0.23.0+, frame with an unknown ID | `["unknown ID 250 @byte 6"]`; the values before it are still in `json2sense` |
+| `batch2sense` | library 0.21.0+, NanoDAq batch frame on fPort 3 | every reading with its time offset |
+
+Every other `msg` property goes through unchanged.
+
+```js
+// in:  msg.payload = "000441da6666"
+// out: msg.payload = { json2sense: { temp: "27.3000" } }
+```
+
+The full output format, the tag list and the batch frame are in the
+[library README](https://github.com/2solve/software_2solve_decoder_lib#readme).
+
+### Errors
+
+When the library throws (invalid hex, wrong offset, JSON without a payload field, or an unknown ID with a library older
+than 0.23.0), the message **does not go on**. Node-RED logs the error and hands it to any `catch` node. The library
+throws plain strings, such as `"Data format must be a hexadecimal string"`.
 
 ### Configuration
 
-| Property | Default | Description |
-|---|---|---|
-| Name | — | Optional label displayed in the Node-RED editor |
-| Offset | `0` | Byte offset applied during decoding |
+| Property | Description |
+|---|---|
+| Name | Label shown in the editor (default: `2stools-datacodec`) |
+| Offset | **Not used.** The field is saved but the code only reads `msg.offset`. Leave it at `0` |
 
 ---
 
-## Usage example
-
-**Minimal flow:**
+## Example
 
 ```
-[inject] → [2stools-datacodec] → [debug]
+[mqtt in: application/+/device/+/event/up] → [2stools-datacodec] → [debug]
 ```
 
-Set the inject node payload to a hex string such as `010045001B0200FA` and connect it to the node. The debug panel will show the decoded sensor values.
+Leave the `mqtt in` output as the default (string or Buffer). The debug panel shows the ChirpStack fields plus
+`json2sense`. To try it without a device, inject the string `000441da6666`: the result is
+`{ json2sense: { temp: "27.3000" } }`.
 
-**LoRaWAN envelope input:**
+---
 
-If the upstream node outputs a LoRaWAN envelope, the node automatically extracts `msg.payload.payload_raw` before decoding — no function node required.
+## Known issues
+
+- The **Offset** field of the node is ignored (see Configuration).
+- A parsed JS object on `msg.payload` throws instead of being decoded.
+- `payload_raw` in Base64 throws.
+- `package.json` still points `repository`, `homepage` and `bugs` to `2solve/2STools`, and keeps fields left by an
+  `npm install` (`_from`, `_resolved`, `_where`…).
 
 ---
 
 ## Migration from `node-red-2stools-packetdecode`
 
-If you are upgrading from the previous package, see the [CHANGELOG](CHANGELOG.md) for full migration instructions, including how to update existing flows that reference the old node type `2stools-packetdecode`.
+Older gateways use the previous package and node type `2stools-packetdecode`. See the [CHANGELOG](CHANGELOG.md) for
+the steps, including how to change the node type in `flows.json`.
 
 ---
 
@@ -87,8 +131,6 @@ If you are upgrading from the previous package, see the [CHANGELOG](CHANGELOG.md
 
 [2Solve Engenharia e Tecnologia Ltda](https://www.2solve.com.br)
 
----
-
 ## License
 
-[ISC](LICENSE)
+ISC
