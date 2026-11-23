@@ -1,5 +1,9 @@
 ## Unreleased
 
+### Changed
+
+- `@tosolve/datacodec` is now taken from `git+https://github.com/2solve/software_2solve_decoder_lib.git#main` instead of the npm range `^0.20.0`, so installing this node from GitHub brings the current decoder library (0.25.0: battery level, overflow, config echo 203/204). Package version 0.20.1.
+
 ### Breaking Changes
 
 #### Package renamed: `node-red-2stools-packetdecode` → `@tosolve/node-red-datacodec`

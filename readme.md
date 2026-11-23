@@ -19,7 +19,19 @@ it and puts the result back on `msg.payload`. It only decodes; there is no encod
 
 ## Installation
 
-From the Node-RED palette manager, or:
+**On a 2Solve gateway, install from GitHub** (this is what gets the current decoder table; the npm copy of
+`@tosolve/datacodec` stopped at 0.20.0):
+
+```bash
+cd ~/.node-red
+npm install git+https://github.com/2solve/software_node-red_decoder_lib.git#develop
+```
+
+The node depends on `git+https://github.com/2solve/software_2solve_decoder_lib.git#main`, so the same command
+also installs the latest decoder library (public repositories, no credentials). To update later, run the same
+command again and restart Node-RED.
+
+From the Node-RED palette manager (npm release, older decoder table), or:
 
 ```bash
 cd ~/.node-red
