@@ -1,8 +1,13 @@
-## Unreleased
+## 0.21.0 (2026-11-23)
 
-### Changed
+### Build
 
-- `@tosolve/datacodec` is now taken from `git+https://github.com/2solve/software_2solve_decoder_lib.git#main` instead of the npm range `^0.20.0`, so installing this node from GitHub brings the current decoder library (0.25.0: battery level, overflow, config echo 203/204). Package version 0.20.1.
+- `@tosolve/datacodec` is now pinned to the tag `git+https://github.com/2solve/software_2solve_decoder_lib.git#v0.26.0` instead of the npm range `^0.20.0`, so installing this node from GitHub always brings the same decoder library (0.26.0: battery level, overflow, config echo 203/204, batch frames covered by tests). Install the node by its tag: `npm install git+https://github.com/2solve/software_node-red_decoder_lib.git#v0.21.0`; `git` is required on the gateway.
+- `package.json` lost the fields left by an `npm install` (`_from`, `_resolved`, `_where`...).
+
+### Test
+
+- `npm test` loads the `2stools-datacodec` node with a fake Node-RED runtime and decodes a known frame offline.
 
 ### Breaking Changes
 
