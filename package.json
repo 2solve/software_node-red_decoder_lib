@@ -7,7 +7,7 @@
   },
   "bundleDependencies": false,
   "dependencies": {
-    "@tosolve/datacodec": "git+https://github.com/2solve/software_2solve_decoder_lib.git#main"
+    "@tosolve/datacodec": "git+https://github.com/2solve/software_2solve_decoder_lib.git#v0.26.0"
   },
   "deprecated": false,
   "description": "Decode string data to a respective sensor on IC",
@@ -35,5 +35,5 @@
   "scripts": {
     "test": "node --test \"test/**/*.test.js\""
   },
-  "version": "0.20.1"
+  "version": "0.21.0"
 }
